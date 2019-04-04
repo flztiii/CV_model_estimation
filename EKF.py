@@ -18,7 +18,7 @@ class EKFilter:
         self.observe_data = []
         self.predict_data = []
         self.estimate_data = []
-        self.sigma_w = 0.5
+        self.sigma_w = 0.3
         self.sigma_v = 0.2
         self.init_pose = np.array(init_pose)
         self.P = np.array(init_P)
@@ -75,7 +75,7 @@ class EKFilter:
             self.estimate_x = predict_x + np.dot(K, observe_x - np.dot(h_x_value, predict_x))
             # print(self.estimate_x)
             self.P = P_pre - np.dot(np.dot(K, h_x_value), P_pre)
-            
+            # print(self.P)
             self.true_data.append(self.true_x)
             self.predict_data.append(predict_x)
             self.observe_data.append(observe_x)
@@ -94,5 +94,5 @@ class EKFilter:
             return self.estimate_data
 
 if __name__ == "__main__":
-    ekfilter = EKFilter([10,1,10,1,10,1],1)
+    ekfilter = EKFilter(np.array([10,1,10,1,10,1]),np.zeros((6, 6)))
     ekfilter.update(1)
