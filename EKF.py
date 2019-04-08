@@ -18,11 +18,11 @@ class EKFilter:
         self.observe_data = []
         self.predict_data = []
         self.estimate_data = []
-        self.sigma_w = 0.3
-        self.sigma_v = 0.2
+        self.sigma_w = 0.5
+        self.sigma_v = 0.1
         self.init_pose = np.array(init_pose)
         self.P = np.array(init_P)
-        self.T = 1.0
+        self.T = 1
         self.Q = np.diag([self.sigma_w, self.sigma_w, self.sigma_w])
         self.R = np.diag([self.sigma_v, self.sigma_v, self.sigma_v])
         self.CVModelBuild()
@@ -43,6 +43,7 @@ class EKFilter:
             for j in range(0, len(self.vari)):
                 h_x_row.append(sympy.diff(self.H[i], self.vari[j]))
             self.h_x.append(h_x_row)
+        # print(self.h_x)
         self.h_v = np.array([[1,0,0],[0,1,0],[0,0,1]])
     
     def initPose(self):
@@ -58,40 +59,43 @@ class EKFilter:
             w = np.array([random.gauss(0, self.sigma_w), random.gauss(0, self.sigma_w), random.gauss(0, self.sigma_w)])
             v = np.array([random.gauss(0, self.sigma_v), random.gauss(0, self.sigma_v), random.gauss(0, self.sigma_v)])
             self.true_x = np.dot(self.f_x, self.true_x.T)+np.dot(self.f_w,w.T)
-            # print(self.true_x)
+            print("true_x", self.true_x)
             observe_x = np.array([float(self.H[0].subs([(self.vari[0], self.true_x[0]),(self.vari[2], self.true_x[2]),(self.vari[4], self.true_x[4])])), float(self.H[1].subs([(self.vari[0], self.true_x[0]),(self.vari[2], self.true_x[2]),(self.vari[4], self.true_x[4])])), float(self.H[2].subs([(self.vari[0], self.true_x[0]),(self.vari[2], self.true_x[2]),(self.vari[4], self.true_x[4])]))])+v
-            # print(observe_x)
+            print("observe",observe_x)
             predict_x = np.dot(self.f_x, self.estimate_x.T)
-            # print(predict_x)
+            print("prediction",predict_x)
             P_pre = np.dot(np.dot(self.f_x, self.P), self.f_x.T)+np.dot(np.dot(self.f_w, self.Q), self.f_w.T)
-            # print(P_pre)
+            print("P_pre",P_pre)
             h_x_value = np.zeros((3, 6))
             for i in range(0, 3):
                 for j in range(0, 6):
                     h_x_value[i, j]= float(self.h_x[i][j].subs([(self.vari[0], predict_x[0]),(self.vari[2], predict_x[2]),(self.vari[4], predict_x[4])]))
-            # print(h_x_value)
-            K = np.dot(np.dot(P_pre, h_x_value.T), np.linalg.inv(np.dot(np.dot(h_x_value, P_pre), h_x_value.T)+np.dot(np.dot(self.h_v, self.R), self.h_v.T)))
-            
-            self.estimate_x = predict_x + np.dot(K, observe_x - np.dot(h_x_value, predict_x))
-            # print(self.estimate_x)
-            self.P = P_pre - np.dot(np.dot(K, h_x_value), P_pre)
-            # print(self.P)
+            print("h_x",h_x_value)
+            observe_pre = np.array([float(self.H[0].subs([(self.vari[0], predict_x[0]),(self.vari[2], predict_x[2]),(self.vari[4], predict_x[4])])), float(self.H[1].subs([(self.vari[0], predict_x[0]),(self.vari[2], predict_x[2]),(self.vari[4], predict_x[4])])), float(self.H[2].subs([(self.vari[0], predict_x[0]),(self.vari[2], predict_x[2]),(self.vari[4], predict_x[4])]))])
+            S = np.dot(np.dot(h_x_value, P_pre), h_x_value.T)+np.dot(np.dot(self.h_v, self.R), self.h_v.T)
+            K = np.dot(np.dot(P_pre, h_x_value.T), np.linalg.inv(S))
+            print("K",K)
+            self.estimate_x = predict_x + np.dot(K, observe_x - observe_pre)
+            print("estimation",self.estimate_x)
+            self.P = np.dot(np.eye(6) - np.dot(K, h_x_value), P_pre)
+            print("P",self.P)
             self.true_data.append(self.true_x)
             self.predict_data.append(predict_x)
             self.observe_data.append(observe_x)
             self.estimate_data.append(self.estimate_x)
+            print("________________________________")
         
-        def getTrueData(self):
-            return self.true_data
-        
-        def getObservation(self):
-            return self.observe_data
-        
-        def getPrediction(self):
-            return self.predict_data
-        
-        def getEstimation(self):
-            return self.estimate_data
+    def getTrueData(self):
+        return self.true_data
+    
+    def getObservation(self):
+        return self.observe_data
+    
+    def getPrediction(self):
+        return self.predict_data
+    
+    def getEstimation(self):
+        return self.estimate_data
 
 if __name__ == "__main__":
     ekfilter = EKFilter(np.array([10,1,10,1,10,1]),np.zeros((6, 6)))
