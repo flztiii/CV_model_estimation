@@ -6,11 +6,12 @@ Created on Wed Apr  3 17:43:06 2019
 """
 
 import EKF
+import UKF
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 import numpy as np
 
-METHOD_TYPE = "EKF"
+METHOD_TYPE = "UKF"
 REPEAT_TIMES = 1
 COUNTS = 50
 
@@ -28,6 +29,15 @@ if __name__ == "__main__":
             ground_truthes.append(ekfilter.getTrueData())
             predictions.append(ekfilter.getPrediction())
             estimations.append(ekfilter.getEstimation())
+    elif METHOD_TYPE == "UKF":
+        init_pose = np.array([[10,10,10,10,10,10]])
+        init_P = np.eye(6)
+        for iteration in range(0, REPEAT_TIMES):
+            ukfilter = UKF.UKFilter(init_pose, init_P)
+            ukfilter.update(COUNTS)
+            ground_truthes.append(ukfilter.getTrueData())
+            predictions.append(ukfilter.getPrediction())
+            estimations.append(ukfilter.getEstimation())
     
     # plot data
     for i in range(0, len(ground_truthes)):
