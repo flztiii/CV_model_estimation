@@ -14,8 +14,8 @@ class UKFilter:
         self.observe_data = []
         self.predict_data = []
         self.estimate_data = []
-        self.sigma_w = 0.5
-        self.sigma_v = 0.5
+        self.sigma_w = 0.5*0.5
+        self.sigma_v = 0.01*0.01
         self.true_x = np.array(init_pose)
         self.estimate_x = np.array(init_pose)
         self.P = np.array(init_P)
@@ -36,11 +36,11 @@ class UKFilter:
                 w_m = lamb/float(n + lamb)
                 w_c = lamb/float(n + lamb) + 1 - alpha**2 + beta
             elif i < n+1:
-                point = x + ((n + lamb)*sigma)[:,i-1].T
+                point = x + np.linalg.cholesky((n + lamb)*sigma)[:,i-1].T
                 w_m = 1.0/(2.0*(n + lamb))
                 w_c = 1.0/(2.0*(n + lamb))
             else:
-                point = x - ((n + lamb)*sigma)[:,i-n-1].T
+                point = x - np.linalg.cholesky((n + lamb)*sigma)[:,i-n-1].T
                 w_m = 1.0/(2.0*(n + lamb))
                 w_c = 1.0/(2.0*(n + lamb))
             points.append(point)
@@ -70,10 +70,15 @@ class UKFilter:
     
     def predict(self):
         x_points, self.ws_m, self.ws_c = self.calcSigmaPoints(self.estimate_x, self.P)
+        print(self.ws_m)
+        print(self.ws_c)
+        print(x_points)
         self.trans_x_points = np.zeros_like(x_points)
         for i in range(0, len(x_points)):
             self.trans_x_points[i] = self.F(x_points[i])
         self.x_pre, self.P_pre = self.unscentedTransform(self.trans_x_points, self.ws_m, self.ws_c, self.Q)
+        print(self.trans_x_points)
+        print(self.x_pre)
         
     def correct(self):
         self.trans_z_points = []
@@ -115,5 +120,5 @@ class UKFilter:
         return self.estimate_data
 
 if __name__ == "__main__":
-    ukfilter = UKFilter(np.array([[10,1,10,1,10,1]]),np.eye(6));
+    ukfilter = UKFilter(np.array([[1,1,1,1,1,1]]),np.eye(6));
     ukfilter.update(1)

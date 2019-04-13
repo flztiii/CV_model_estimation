@@ -21,7 +21,7 @@ if __name__ == "__main__":
     estimations = []
     # get simulated data
     if METHOD_TYPE == "EKF":
-        init_pose = np.array([10,10,10,10,10,10])
+        init_pose = np.array([1,1,1,1,1,1])
         init_P = np.eye(6)
         for iteration in range(0, REPEAT_TIMES):
             ekfilter = EKF.EKFilter(init_pose, init_P)
@@ -30,7 +30,7 @@ if __name__ == "__main__":
             predictions.append(ekfilter.getPrediction())
             estimations.append(ekfilter.getEstimation())
     elif METHOD_TYPE == "UKF":
-        init_pose = np.array([[10,10,10,10,10,10]])
+        init_pose = np.array([[1,1,1,1,1,1]])
         init_P = np.eye(6)
         for iteration in range(0, REPEAT_TIMES):
             ukfilter = UKF.UKFilter(init_pose, init_P)
