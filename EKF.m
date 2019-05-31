@@ -17,6 +17,10 @@ R = sigma_v^2*eye(m);
 
 f_x = @(x)[x(1)+dt*x(2); x(2); x(3)+dt*x(4); x(4); x(5)+dt*x(6); x(6)];
 h_z = @(x)[sqrt(x(1)^2+x(3)^2+x(5)^2); atan(x(3)/x(1)); atan(x(5)/sqrt(x(1)^2+x(3)^2))];
+f_x_j = @(x)[1,dt,0,0,0,0;0,1,0,0,0,0;0,0,1,dt,0,0;0,0,0,1,0,0;0,0,0,0,1,dt;0,0,0,0,0,1];
+h_z_j = @(x)[x(1)/(x(1)^2 + x(3)^2 + x(5)^2)^(1/2),0,x(3)/(x(1)^2 + x(3)^2 + x(5)^2)^(1/2),0,x(5)/(x(1)^2 + x(3)^2 + x(5)^2)^(1/2), 0;
+             -x(3)/(x(1)^2*(x(3)^2/x(1)^2 + 1)),0,1/(x(1)*(x(3)^2/x(1)^2 + 1)),0,0,0;
+             -(x(1)*x(5))/((x(5)^2/(x(1)^2 + x(3)^2) + 1)*(x(1)^2 + x(3)^2)^(3/2)),0,-(x(3)*x(5))/((x(5)^2/(x(1)^2 + x(3)^2) + 1)*(x(1)^2 + x(3)^2)^(3/2)),0,1/((x(5)^2/(x(1)^2 + x(3)^2) + 1)*(x(1)^2 + x(3)^2)^(1/2)),0];
 
 for iter = 1:TIMES
     % init state
@@ -38,11 +42,13 @@ for iter = 1:TIMES
         sV(:,k) = s;
         zV(:,k) = z;
         % prediction
-        [p, A] = jaccsd(f_x, x);
+        p = f_x(x);
+        A = f_x_j(x);
         pV(:,k) = p;
         P = A*P*A'+Q;
         %update
-        [z1,H] = jaccsd(h_z, p);
+        z1 = h_z(p);
+        H = h_z_j(p);
         K = P*H'*inv(H*P*H'+R);
         x = p+K*(z-z1);
         P = P-K*H*P;
@@ -90,24 +96,6 @@ ylabel('RMSE');
 figure();
 boxplot(RMSEs);
 title('RMSEºÐÐëÍ¼');
-
-function [z, A] = jaccsd(fun, x)
-    % JACCSD Jacobian through complex step differentiation
-    % [z J] = jaccsd(f,x)
-    % z = f(x)
-    % J = f'(x)
-    %
-    z = fun(x);
-    n = numel(x);
-    m = numel(z);
-    A = zeros(m,n);
-    h = n*eps;
-    for k = 1:n
-        x1 = x;
-        x1(k) = x1(k)+h*1i;
-        A(:,k) = imag(fun(x1))/h;
-    end
-end
 
 function pos = statePos(state)
     [m,n] = size(state);
