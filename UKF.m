@@ -3,13 +3,13 @@ clear;
 
 % define parameters
 TIMES = 100;
-RMSEs = zeros(TIMES,1);
-N = 50;
+N = 100;
 n = 6;
 m = 3;
 dt = 0.1;
-sigma_w = 0.5;
+sigma_w = 0.1;
 sigma_v = 0.01;
+RMSEs = zeros(TIMES,N,1);
 
 f_w = [dt^2/2.0, 0, 0; dt, 0, 0; 0, dt^2/2.0, 0; 0, dt, 0; 0, 0, dt^2/2.0; 0, 0, dt];
 Q = f_w*(sigma_w^2*eye(3))*f_w';
@@ -30,7 +30,6 @@ for iter = 1:TIMES
     sV = zeros(n,N); % true value
     zV = zeros(m,N); % observation
     pV = zeros(n,N); % prediction
-    RMSE = 0;
 
     for k = 1:N
         % get values
@@ -62,10 +61,8 @@ for iter = 1:TIMES
         P = P_pre - K*P_z*K';
 
         xV(:,k) = x;
-        RMSE = RMSE + sqrt(sum((x-s).*(x-s)));
+        RMSEs(iter,k,1) = sqrt(sum((x-s).*(x-s)));
     end
-    RMSE = RMSE/N;
-    RMSEs(iter) = RMSE;
     
     if iter == 1
         xP = statePos(xV);
@@ -94,15 +91,12 @@ for iter = 1:TIMES
 end
 
 figure();
-number = 1:TIMES;
+number = 1:N;
+RMSEs = calcMeanError(RMSEs, N, TIMES);
 plot(number,RMSEs);
-title('门卡罗特仿真的RMSE');
-xlabel('实验次数');
+title('100次蒙特卡洛仿真的RMSE');
+xlabel('时间');
 ylabel('RMSE');
-
-figure();
-boxplot(RMSEs);
-title('RMSE盒须图');
 
 function [X, w_m, w_c] = sigmaPoints(x, P, n, alpha, beta, kappa)
     lambda = alpha^2*(n+kappa)-n;
@@ -146,5 +140,17 @@ function pos = statePos(state)
     pos = zeros(m/2,n);
     for k = 1:n
         pos(:,k) = [state(1,k);state(3,k);state(5,k)];
+    end
+end
+
+function mean_error = calcMeanError(state, length, times)
+    mean_error = [];
+    for i = 1:length
+        error = 0.0;
+        for j = 1:times
+            error = error + state(j,i,1);
+        end
+        error = error/times;
+        mean_error = [mean_error, error];
     end
 end
