@@ -2,14 +2,14 @@ clc;
 clear;
 
 % define parameters
-TIMES = 100;  %蒙特卡洛仿真次数
+TIMES = 10;  %蒙特卡洛仿真次数
 RMSEs = zeros(TIMES,1);
 N = 100;
 n = 6;
 m = 3;
 dt = 0.1;
-sigma_w = 0.1;  % 状态转移噪声
-sigma_v = 0.04;  % 传感器噪声
+sigma_w = 0.03;  % 状态转移噪声
+sigma_v = 0.03;  % 传感器噪声
 OBJ = 3;  % 观测目标数量
 SENSOR = 2;  % 传感器数量
 
@@ -35,8 +35,8 @@ sensor2_zV = zeros(OBJ,TIMES,N,m); % observation
 sensor2_pV = zeros(OBJ,TIMES,N,n); % prediction
 sensor2_RMSE = zeros(OBJ,TIMES,N,1); % rmse
 % 融合结果的record
-final_xV = zeros(OBJ,TIMES,N,n); % estimation
-final_RMSE = zeros(OBJ,TIMES,N,1); % rmse
+fusion_xV = zeros(OBJ,TIMES,N,n); % estimation
+fusion_RMSE = zeros(OBJ,TIMES,N,1); % rmse
 % 真实轨迹的record
 true_sV = zeros(OBJ,TIMES,N,n); % true value
 
@@ -116,7 +116,7 @@ for iter = 1:TIMES
         sensor1_x3 = sensor1_p3 + sensor1_K3*(sensor1_z3-sensor1_y3);
         sensor1_P3 = sensor1_P3-sensor1_K3*sensor1_H3*sensor1_P3;
         sensor1_xV(3,iter,k,:) = sensor1_x3;
-        sensor1_RMSE(3,iter,k,1) = sqrt(sum((s3 - sensor1_x3).*(s1 - sensor1_x3)));
+        sensor1_RMSE(3,iter,k,1) = sqrt(sum((s3 - sensor1_x3).*(s3 - sensor1_x3)));
         
         % 传感器2的局部航迹估计
         sensor2_z1 = h_z(s1) + sigma_v*randn(3,1);
@@ -166,7 +166,7 @@ for iter = 1:TIMES
         sensor2_x3 = sensor2_p3 + sensor2_K3*(sensor2_z3-sensor2_y3);
         sensor2_P3 = sensor2_P3-sensor2_K3*sensor2_H3*sensor2_P3;
         sensor2_xV(3,iter,k,:) = sensor2_x3;
-        sensor2_RMSE(3,iter,k,1) = sqrt(sum((s3 - sensor2_x3).*(s1 - sensor2_x3)));
+        sensor2_RMSE(3,iter,k,1) = sqrt(sum((s3 - sensor2_x3).*(s3 - sensor2_x3)));
         
         % 局部航迹关联与融合
         sensor1_trajectory = [sensor1_x1, sensor1_x2, sensor1_x3];
@@ -179,17 +179,172 @@ for iter = 1:TIMES
         sensor2_P_set{1} = sensor2_P1;
         sensor2_P_set{2} = sensor2_P2;
         sensor2_P_set{3} = sensor2_P3;
+        s_set = [s1, s2, s3];
         for sensor1_trajectory_index = 1:3
             sensor1_local_trajectory = sensor1_trajectory(:,sensor1_trajectory_index);
             sensor1_P = sensor1_P_set{sensor1_trajectory_index};
+            min_alpha = 1000000000000000.0;
+            matched_index = sensor1_trajectory_index;
             for sensor2_trajectory_index = 1:3
                 sensor2_local_trajectory = sensor2_trajectory(:,sensor2_trajectory_index);
                 sensor2_P = sensor2_P_set{sensor2_trajectory_index};
                 % 计算协方差
-                alpha = sensor1_local_trajectory-sensor2_local_trajectory
+                C = sensor1_P + sensor2_P;
+                % 计算接近距离
+                alpha = (sensor1_local_trajectory-sensor2_local_trajectory)'*inv(C)*(sensor1_local_trajectory-sensor2_local_trajectory);
+                if alpha < min_alpha
+                    min_alpha = alpha;
+                    matched_index = sensor2_trajectory_index;
+                end
             end
+            % 找出关联局部航迹后进行并行式融合
+            matched_trajectory = sensor2_trajectory(:,matched_index);
+            matched_P = sensor2_P_set{matched_index};
+            fusion_P = inv(sensor1_P) + inv(matched_P);
+            fusion_trajectory = inv(fusion_P)*(inv(sensor1_P)*sensor1_local_trajectory + inv(matched_P)*matched_trajectory);
+            fusion_xV(sensor1_trajectory_index,iter,k,:) = fusion_trajectory;
+            fusion_RMSE(sensor1_trajectory_index,iter,k,1) = sqrt(sum((fusion_trajectory - s_set(:,sensor1_trajectory_index)).*(fusion_trajectory - s_set(:,sensor1_trajectory_index))));
         end
-        EKF(aaa)
-        
+    end
+end
+
+% 轨迹可视化
+FontSize = 14;
+LineWidth = 1;
+
+% 第一个传感器物体轨迹可视化
+figure();
+% 真实值
+[x_pos,y_pos,z_pos] = statePos(true_sV, N, 1, 1);
+plot3(x_pos, y_pos, z_pos,'g-');
+hold on;
+[x_pos,y_pos,z_pos] = statePos(true_sV, N, 2, 1);
+plot3(x_pos, y_pos, z_pos,'g-');
+hold on;
+[x_pos,y_pos,z_pos] = statePos(true_sV, N, 3, 1);
+plot3(x_pos, y_pos, z_pos,'g-');
+hold on;
+% 估计值
+[x_pos,y_pos,z_pos] = statePos(sensor1_xV, N, 1, 1);
+plot3(x_pos, y_pos, z_pos,'b-','LineWidth',LineWidth);
+hold on;
+[x_pos,y_pos,z_pos] = statePos(sensor1_xV, N, 2, 1);
+plot3(x_pos, y_pos, z_pos,'b-','LineWidth',LineWidth);
+hold on;
+[x_pos,y_pos,z_pos] = statePos(sensor1_xV, N, 3, 1);
+plot3(x_pos, y_pos, z_pos,'b-','LineWidth',LineWidth);
+hold on;
+% 预测值
+[x_pos,y_pos,z_pos] = statePos(sensor1_pV, N, 1, 1);
+plot3(x_pos,y_pos,z_pos,'k+');
+hold on;
+[x_pos,y_pos,z_pos] = statePos(sensor1_pV, N, 2, 1);
+plot3(x_pos,y_pos,z_pos,'k+');
+hold on;
+[x_pos,y_pos,z_pos] = statePos(sensor1_pV, N, 3, 1);
+plot3(x_pos,y_pos,z_pos,'k+');
+hold on;
+
+legend('物体一真实状态','物体二真实状态','物体三真实状态', '物体一EKF最优估计估计值', '物体二EKF最优估计估计值','物体三EKF最优估计估计值','物体一预测值','物体二预测值','物体三预测值');
+hold off;
+
+% 第二个传感器物体轨迹可视化
+figure();
+% 真实值
+[x_pos,y_pos,z_pos] = statePos(true_sV, N, 1, 1);
+plot3(x_pos, y_pos, z_pos,'g-');
+hold on;
+[x_pos,y_pos,z_pos] = statePos(true_sV, N, 2, 1);
+plot3(x_pos, y_pos, z_pos,'g-');
+hold on;
+[x_pos,y_pos,z_pos] = statePos(true_sV, N, 3, 1);
+plot3(x_pos, y_pos, z_pos,'g-');
+hold on;
+% 估计值
+[x_pos,y_pos,z_pos] = statePos(sensor2_xV, N, 1, 1);
+plot3(x_pos, y_pos, z_pos,'b-','LineWidth',LineWidth);
+hold on;
+[x_pos,y_pos,z_pos] = statePos(sensor2_xV, N, 2, 1);
+plot3(x_pos, y_pos, z_pos,'b-','LineWidth',LineWidth);
+hold on;
+[x_pos,y_pos,z_pos] = statePos(sensor2_xV, N, 3, 1);
+plot3(x_pos, y_pos, z_pos,'b-','LineWidth',LineWidth);
+hold on;
+% 预测值
+[x_pos,y_pos,z_pos] = statePos(sensor2_pV, N, 1, 1);
+plot3(x_pos,y_pos,z_pos,'k+');
+hold on;
+[x_pos,y_pos,z_pos] = statePos(sensor2_pV, N, 2, 1);
+plot3(x_pos,y_pos,z_pos,'k+');
+hold on;
+[x_pos,y_pos,z_pos] = statePos(sensor2_pV, N, 3, 1);
+plot3(x_pos,y_pos,z_pos,'k+');
+hold on;
+
+legend('物体一真实状态','物体二真实状态','物体三真实状态', '物体一EKF最优估计估计值', '物体二EKF最优估计估计值','物体三EKF最优估计估计值','物体一预测值','物体二预测值','物体三预测值');
+hold off;
+
+% 融合后可视化
+figure();
+% 真实值
+[x_pos,y_pos,z_pos] = statePos(true_sV, N, 1, 1);
+plot3(x_pos, y_pos, z_pos,'g-');
+hold on;
+[x_pos,y_pos,z_pos] = statePos(true_sV, N, 2, 1);
+plot3(x_pos, y_pos, z_pos,'g-');
+hold on;
+[x_pos,y_pos,z_pos] = statePos(true_sV, N, 3, 1);
+plot3(x_pos, y_pos, z_pos,'g-');
+hold on;
+% 估计值
+[x_pos,y_pos,z_pos] = statePos(fusion_xV, N, 1, 1);
+plot3(x_pos, y_pos, z_pos,'b-','LineWidth',LineWidth);
+hold on;
+[x_pos,y_pos,z_pos] = statePos(fusion_xV, N, 2, 1);
+plot3(x_pos, y_pos, z_pos,'b-','LineWidth',LineWidth);
+hold on;
+[x_pos,y_pos,z_pos] = statePos(fusion_xV, N, 3, 1);
+plot3(x_pos, y_pos, z_pos,'b-','LineWidth',LineWidth);
+hold on;
+hold on;
+
+legend('物体一真实状态','物体二真实状态','物体三真实状态', '物体一估计值', '物体二估计值','物体三估计值');
+hold off;
+
+% RMSE对比
+
+% 第一个物体
+figure();
+number = 1:TIMES;
+RMSEs = calcMeanError(sensor1_RMSE, );
+plot(number,RMSEs);
+hold on;
+RMSEs = calcMeanError(sensor2_RMSE);
+plot(number,RMSEs);
+hold on;
+RMSEs = calcMeanError(fusion_RMSE);
+plot(number,RMSEs);
+hold off;
+
+function [x_pos,y_pos,z_pos] = statePos(state, length, obj, iter)
+    x_pos = zeros(1,length);
+    y_pos = zeros(1,length);
+    z_pos = zeros(1,length);
+    for i = 1:length
+        x_pos(1,i) = state(obj,iter,i,1);
+        y_pos(1,i) = state(obj,iter,i,3);
+        z_pos(1,i) = state(obj,iter,i,5);
+    end
+end
+
+function mean_error = calcMeanError(state, length, times, obj)
+    mean_error = zeros(length);
+    for i = 1:length
+        error = 0.0;
+        for j = 1:times
+            error = error + state(obj,j,i,1);
+        end
+        error = error/times;
+        mean_error(i) = error;
     end
 end
