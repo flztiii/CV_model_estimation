@@ -9,7 +9,7 @@ n = 6;
 m = 3;
 dt = 0.1;
 sigma_w = 0.1;  % 状态转移噪声
-sigma_v = 0.01;  % 传感器噪声
+sigma_v = 0.04;  % 传感器噪声
 OBJ = 3;  % 观测目标数量
 SENSOR = 2;  % 传感器数量
 
@@ -168,7 +168,42 @@ for iter = 1:TIMES
         sensor2_xV(3,iter,k,:) = sensor2_x3;
         sensor2_RMSE(3,iter,k,1) = sqrt(sum((s3 - sensor2_x3).*(s1 - sensor2_x3)));
         
-        % 局部航迹关联与融合W
+        % 局部航迹关联与融合
+        sensor1_trajectory = [sensor1_x1, sensor1_x2, sensor1_x3];
+        sensor1_P_set = cell(3);
+        sensor1_P_set{1} = sensor1_P1;
+        sensor1_P_set{2} = sensor1_P2;
+        sensor1_P_set{3} = sensor1_P3;
+        sensor2_trajectory = [sensor2_x1, sensor2_x2, sensor2_x3];
+        sensor2_P_set = cell(3);
+        sensor2_P_set{1} = sensor2_P1;
+        sensor2_P_set{2} = sensor2_P2;
+        sensor2_P_set{3} = sensor2_P3;
+        for sensor1_trajectory_index = 1:3
+            sensor1_local_trajectory = sensor1_trajectory(:,sensor1_trajectory_index);
+            sensor1_P = sensor1_P_set{sensor1_trajectory_index};
+            min_alpha = 1000000000000000.0;
+            matched_index = sensor1_trajectory_index;
+            for sensor2_trajectory_index = 1:3
+                sensor2_local_trajectory = sensor2_trajectory(:,sensor2_trajectory_index);
+                sensor2_P = sensor2_P_set{sensor2_trajectory_index};
+                % 计算协方差
+                C = sensor1_P + sensor2_P;
+                % 计算接近距离
+                alpha = (sensor1_local_trajectory-sensor2_local_trajectory)'*inv(C)*(sensor1_local_trajectory-sensor2_local_trajectory);
+                if alpha < min_alpha
+                    alpha = min_alpha;
+                    matched_index = sensor2_trajectory_index;
+                end
+            end
+            % 找出关联局部航迹后进行并行式融合
+            matched_trajectory = sensor2_trajectory(:,matched_index);
+            matched_P = sensor2_P_set{matched_index};
+            fusion_P = inv(sensor1_P) + inv(matched_P);
+            fusion_trajecoty = inv(fusion_P)*(inv(sensor1_P)*sensor1_local_trajectory + inv(matched_P)*matched_trajectory)
+            
+        end
+        EKF(aaa)
         
     end
 end

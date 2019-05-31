@@ -9,7 +9,7 @@ n = 6;
 m = 3;
 dt = 0.1;
 sigma_w = 0.1;  % 状态转移噪声
-sigma_v = 0.01;  % 传感器噪声
+sigma_v = 0.04;  % 传感器噪声
 OBJ = 3;  % 观测目标数量
 SENSOR = 2;  % 传感器数量
 
@@ -152,23 +152,44 @@ for iter = 1:TIMES
         sensor2_xV(1,iter,k,:) = sensor2_x1;
         sensor2_RMSE(1,iter,k,1) = sqrt(sum((s1 - sensor2_x1).*(s1 - sensor2_x1)));
         
-        sensor1_y2 = h_z(sensor1_p2);
-        sensor1_H2 = h_z_j(sensor1_p2);
-        sensor1_K2 = sensor1_P2*sensor1_H2'*inv(sensor1_H2*sensor1_P2*sensor1_H2'+R);
-        sensor1_x2 = sensor1_p2 + sensor1_K2*(sensor1_z2-sensor1_y2);
-        sensor1_P2 = sensor1_P2-sensor1_K2*sensor1_H2*sensor1_P2;
-        sensor1_xV(2,iter,k,:) = sensor1_x2;
-        sensor1_RMSE(2,iter,k,1) = sqrt(sum((s2 - sensor1_x2).*(s2 - sensor1_x2)));
+        sensor2_y2 = h_z(sensor2_p2);
+        sensor2_H2 = h_z_j(sensor2_p2);
+        sensor2_K2 = sensor2_P2*sensor2_H2'*inv(sensor2_H2*sensor2_P2*sensor2_H2'+R);
+        sensor2_x2 = sensor2_p2 + sensor2_K2*(sensor2_z2-sensor2_y2);
+        sensor2_P2 = sensor2_P2-sensor2_K2*sensor2_H2*sensor2_P2;
+        sensor2_xV(2,iter,k,:) = sensor2_x2;
+        sensor2_RMSE(2,iter,k,1) = sqrt(sum((s2 - sensor2_x2).*(s2 - sensor2_x2)));
         
-        sensor1_y3 = h_z(sensor1_p3);
-        sensor1_H3 = h_z_j(sensor1_p3);
-        sensor1_K3 = sensor1_P3*sensor1_H3'*inv(sensor1_H3*sensor1_P3*sensor1_H3'+R);
-        sensor1_x3 = sensor1_p3 + sensor1_K3*(sensor1_z3-sensor1_y3);
-        sensor1_P3 = sensor1_P3-sensor1_K3*sensor1_H3*sensor1_P3;
-        sensor1_xV(3,iter,k,:) = sensor1_x3;
-        sensor1_RMSE(3,iter,k,1) = sqrt(sum((s3 - sensor1_x3).*(s1 - sensor1_x3)));
+        sensor2_y3 = h_z(sensor2_p3);
+        sensor2_H3 = h_z_j(sensor2_p3);
+        sensor2_K3 = sensor2_P3*sensor2_H3'*inv(sensor2_H3*sensor2_P3*sensor2_H3'+R);
+        sensor2_x3 = sensor2_p3 + sensor2_K3*(sensor2_z3-sensor2_y3);
+        sensor2_P3 = sensor2_P3-sensor2_K3*sensor2_H3*sensor2_P3;
+        sensor2_xV(3,iter,k,:) = sensor2_x3;
+        sensor2_RMSE(3,iter,k,1) = sqrt(sum((s3 - sensor2_x3).*(s1 - sensor2_x3)));
         
-        % 局部航迹关联与融合W
+        % 局部航迹关联与融合
+        sensor1_trajectory = [sensor1_x1, sensor1_x2, sensor1_x3];
+        sensor1_P_set = cell(3);
+        sensor1_P_set{1} = sensor1_P1;
+        sensor1_P_set{2} = sensor1_P2;
+        sensor1_P_set{3} = sensor1_P3;
+        sensor2_trajectory = [sensor2_x1, sensor2_x2, sensor2_x3];
+        sensor2_P_set = cell(3);
+        sensor2_P_set{1} = sensor2_P1;
+        sensor2_P_set{2} = sensor2_P2;
+        sensor2_P_set{3} = sensor2_P3;
+        for sensor1_trajectory_index = 1:3
+            sensor1_local_trajectory = sensor1_trajectory(:,sensor1_trajectory_index);
+            sensor1_P = sensor1_P_set{sensor1_trajectory_index};
+            for sensor2_trajectory_index = 1:3
+                sensor2_local_trajectory = sensor2_trajectory(:,sensor2_trajectory_index);
+                sensor2_P = sensor2_P_set{sensor2_trajectory_index};
+                % 计算协方差
+                alpha = sensor1_local_trajectory-sensor2_local_trajectory
+            end
+        end
+        EKF(aaa)
         
     end
 end
